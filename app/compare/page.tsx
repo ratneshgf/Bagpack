@@ -24,6 +24,7 @@ import {
   Receipt,
   ArrowRight,
   Bookmark,
+  ExternalLink,
 } from 'lucide-react';
 
 const OpenStreetMapView = dynamic(() => import('@/components/OpenStreetMapView'), { ssr: false });
@@ -322,7 +323,7 @@ function CompareContent() {
             <input type="number" min="1" step="0.1" value={fuelPricePerLiter} onChange={(e) => setFuelPricePerLiter(Number(e.target.value))} className="w-full bg-[#1A1A1A] border border-[#F5E6D3]/[0.1] rounded-xl px-3 py-2 text-xs text-[#F5E6D3]" />
           </div>
           <div><label className="text-xs font-medium text-[#A89070] block mb-1.5">Trip days</label><input type="number" min="2" max="30" value={tripDays} onChange={(e) => setTripDays(Number(e.target.value))} className="w-full bg-[#1A1A1A] border border-[#F5E6D3]/[0.1] rounded-xl px-3 py-2 text-xs text-[#F5E6D3]" /></div>
-          <div><label className="text-xs font-medium text-[#A89070] block mb-1.5">Stay quote (₹ / room / night)</label><input type="number" min="0" value={hotelNightPerRoom} onChange={(e) => setHotelNightPerRoom(Number(e.target.value))} className="w-full bg-[#1A1A1A] border border-[#F5E6D3]/[0.1] rounded-xl px-3 py-2 text-xs text-[#F5E6D3]" /></div>
+          <div><label className="flex items-center justify-between gap-2 text-xs font-medium text-[#A89070] mb-1.5"><span>Stay quote (₹ / room / night)</span><a href="https://www.makemytrip.com/hotels/" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-bold text-red-400 hover:text-red-300">Check live hotels <ExternalLink className="h-3 w-3" /></a></label><input type="number" min="0" value={hotelNightPerRoom} onChange={(e) => setHotelNightPerRoom(Number(e.target.value))} className="w-full bg-[#1A1A1A] border border-[#F5E6D3]/[0.1] rounded-xl px-3 py-2 text-xs text-[#F5E6D3]" /><p className="mt-1 text-[10px] text-[#A89070]">Search {destinationInput}, select dates, then enter the live room rate here.</p></div>
           <div><label className="text-xs font-medium text-[#A89070] block mb-1.5">Food (₹ / person / day)</label><input type="number" min="0" value={foodPerPersonPerDay} onChange={(e) => setFoodPerPersonPerDay(Number(e.target.value))} className="w-full bg-[#1A1A1A] border border-[#F5E6D3]/[0.1] rounded-xl px-3 py-2 text-xs text-[#F5E6D3]" /></div>
           <div><label className="text-xs font-medium text-[#A89070] block mb-1.5">Activities (₹ / person / day)</label><input type="number" min="0" value={activitiesPerPersonPerDay} onChange={(e) => setActivitiesPerPersonPerDay(Number(e.target.value))} className="w-full bg-[#1A1A1A] border border-[#F5E6D3]/[0.1] rounded-xl px-3 py-2 text-xs text-[#F5E6D3]" /></div>
           <div><label className="text-xs font-medium text-[#A89070] block mb-1.5">Local travel (₹ / day / group)</label><input type="number" min="0" value={localTravelPerDay} onChange={(e) => setLocalTravelPerDay(Number(e.target.value))} className="w-full bg-[#1A1A1A] border border-[#F5E6D3]/[0.1] rounded-xl px-3 py-2 text-xs text-[#F5E6D3]" /></div>

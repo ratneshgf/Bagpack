@@ -103,7 +103,8 @@ export function estimateExpenseBreakdown(input: CostEstimationInput): ExpenseBre
   if (!dest) throw new Error(`Destination not found: ${input.destinationId}`);
 
   const { travelers, durationDays, style } = input;
-  const nights = Math.max(durationDays - 1, 1);
+  // A one-day outing has no overnight accommodation cost.
+  const nights = Math.max(durationDays - 1, 0);
   const foodMult = STYLE_FOOD_MULTIPLIERS[style];
   const hotelMult = STYLE_HOTEL_MULTIPLIERS[style];
   const cp = dest.costProfile;

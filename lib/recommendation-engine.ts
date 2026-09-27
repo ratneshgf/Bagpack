@@ -8,7 +8,7 @@ import type {
   Destination, TripScope, InterestTag,
 } from './types';
 import { DESTINATIONS, getWeatherScore } from './destinations';
-import { estimateExpenseBreakdown, normalizeBudget, generateTransportOptions } from './cost-engine';
+import { estimateExpenseBreakdown, normalizeBudget } from './cost-engine';
 
 // ── Score Weights (config-driven) ────────────────────────────
 
@@ -25,25 +25,26 @@ const WEIGHTS = {
 
 // ── Distance Lookup (origin → destination, km, approximate) ──
 
-const DISTANCE_FROM_INDIA_KM: Record<string, number> = {
-  goa_in: 1200,
-  manali_in: 600,
-  jaisalmer_in: 800,
-  rishikesh_in: 300,
-  varanasi_in: 700,
-  darjeeling_in: 1500,
-  bangkok_th: 3000,
-  bali_id: 4500,
-  dubai_ae: 2200,
-  singapore_sg: 4200,
-  phuket_th: 3200,
-  kathmandu_np: 1200,
-  colombo_lk: 2800,
-  kuala_lumpur_my: 4100,
-  tokyo_jp: 5800,
-  paris_fr: 7200,
-  maldives_mv: 2000,
+const ORIGIN_COORDINATES: Record<string, [number, number]> = {
+  delhi: [28.6139, 77.2090], mumbai: [19.0760, 72.8777], bengaluru: [12.9716, 77.5946],
+  bangalore: [12.9716, 77.5946], chennai: [13.0827, 80.2707], kolkata: [22.5726, 88.3639],
+  hyderabad: [17.3850, 78.4867], pune: [18.5204, 73.8567], jaipur: [26.9124, 75.7873],
+  gwalior: [26.2183, 78.1828],
 };
+
+function resolveOriginCoordinates(label: string): [number, number] {
+  const normalized = label.toLowerCase();
+  const matched = Object.entries(ORIGIN_COORDINATES).find(([city]) => normalized.includes(city));
+  return matched?.[1] ?? ORIGIN_COORDINATES.delhi;
+}
+
+function haversineKm([originLat, originLng]: [number, number], destination: Destination): number {
+  const radians = (value: number) => (value * Math.PI) / 180;
+  const latitudeDelta = radians(destination.lat - originLat);
+  const longitudeDelta = radians(destination.lng - originLng);
+  const calculation = Math.sin(latitudeDelta / 2) ** 2 + Math.cos(radians(originLat)) * Math.cos(radians(destination.lat)) * Math.sin(longitudeDelta / 2) ** 2;
+  return Math.round(6371 * 2 * Math.atan2(Math.sqrt(calculation), Math.sqrt(1 - calculation)));
+}
 
 // ── Visa Ease Score ───────────────────────────────────────────
 
@@ -73,7 +74,8 @@ function getCandidateDestinations(request: SearchRequest): Destination[] {
     const matchesScope =
       tripScope === 'DOMESTIC' ? d.countryCode === 'IN' :
       tripScope === 'INTERNATIONAL' ? d.countryCode !== 'IN' : true;
-    const matchesInterest = interests.length === 0 || interests.some((interest) => d.tags.includes(interest));
+    // Every selected vibe must match: desert must never return a beach destination.
+    const matchesInterest = interests.length === 0 || interests.every((interest) => d.tags.includes(interest));
     return matchesScope && matchesInterest;
   });
 }
@@ -127,12 +129,13 @@ export function generateRecommendations(request: SearchRequest): RecommendationR
     : (request.dates.startDate?.slice(5, 7) ?? currentMonth);
 
   const results: RecommendationResult[] = [];
+  const originCoordinates = resolveOriginCoordinates(request.originLabel);
 
   for (const dest of candidates) {
     try {
-      const distanceKm = DISTANCE_FROM_INDIA_KM[dest.id] ?? 2000;
+      const distanceKm = haversineKm(originCoordinates, dest);
       const isInternational = dest.countryCode !== 'IN';
-      const bestMode = distanceKm > 500 || isInternational ? 'AIR' : 'AIR';
+      const bestMode = isInternational || distanceKm > 650 ? 'AIR' : distanceKm > 180 ? 'CAR' : 'BUS';
 
       const breakdown = estimateExpenseBreakdown({
         destinationId: dest.id,
@@ -159,7 +162,7 @@ export function generateRecommendations(request: SearchRequest): RecommendationR
       const visaEaseRaw = getVisaEaseScore(dest.countryCode) / 10;
       const visaEaseScore = request.visaPreference === 'LOW_FRICTION' ? visaEaseRaw : visaEaseRaw * 0.7 + 0.3;
       const dataConfidence = 0.7; // modeled data
-      const connectivity = Math.min(dest.airportCodes.length / 3, 1);
+      const connectivity = isInternational ? Math.min(dest.airportCodes.length / 3, 1) : Math.max(0.3, 1 - distanceKm / 1600);
       const valueScore = Math.min(1 - (midTotal / totalBudget) * 0.5, 1);
 
       const scoreBreakdown: ScoreBreakdown = {
@@ -190,6 +193,7 @@ export function generateRecommendations(request: SearchRequest): RecommendationR
       const reasons: string[] = [];
       if (budgetFitScore > 0.8) reasons.push(`Strong budget fit — ₹${Math.abs(budgetRemainingMid).toLocaleString()} ${isOverBudget ? 'over' : 'remaining'}`);
       if (interestScore > 0.6) reasons.push(`Matches your interests: ${request.interests.slice(0, 2).join(', ').toLowerCase()}`);
+      if (distanceKm <= 350) reasons.push(`Nearby ${distanceKm.toLocaleString('en-IN')} km straight-line distance from your origin`);
       if (weatherScore > 0.7) reasons.push(`Great ${targetMonth ? new Date(0, parseInt(targetMonth) - 1).toLocaleString('default', { month: 'long' }) : ''} weather`);
       if (visaEaseScore > 0.7) reasons.push(`Easy entry for Indian passport`);
       if (valueScore > 0.7) reasons.push(`Excellent value for money`);
@@ -198,7 +202,7 @@ export function generateRecommendations(request: SearchRequest): RecommendationR
       const warnings: string[] = [];
       if (utilization > 0.95) warnings.push('Tight on budget — minimal contingency buffer');
       if (weatherScore < 0.5) warnings.push('Suboptimal weather for this period');
-      if (distanceKm > 4000 && request.durationDays < 5) warnings.push('Long travel time relative to trip duration');
+      if (distanceKm > 650 && request.durationDays <= 2) warnings.push('Too far for a short trip — consider a closer destination');
 
       const travelTimeHours = isInternational ? distanceKm / 800 + 3 : distanceKm / 600 + 1;
 
@@ -229,7 +233,10 @@ export function generateRecommendations(request: SearchRequest): RecommendationR
   }
 
   // Sort by score descending
-  results.sort((a, b) => b.score - a.score);
+  results.sort((a, b) => {
+    if (request.durationDays <= 2 && a.travelTimeHours !== b.travelTimeHours) return a.travelTimeHours - b.travelTimeHours;
+    return b.score - a.score;
+  });
 
   return results.slice(0, 12);
 }

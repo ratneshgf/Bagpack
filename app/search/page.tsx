@@ -19,6 +19,7 @@ function parseEnum<T extends string>(value: string | null, allowed: readonly T[]
 import RecommendationCard from '@/components/RecommendationCard';
 import LiveIndiaResearch from '@/components/LiveIndiaResearch';
 import Footer from '@/components/Footer';
+import LocationAutocomplete from '@/components/LocationAutocomplete';
 import {
   SlidersHorizontal,
   ArrowUpDown,
@@ -44,7 +45,7 @@ function SearchResultsContent() {
     parseInt(searchParams.get('travelers') || '4', 10)
   );
   const [budgetAmount, setBudgetAmount] = useState(
-    parseInt(searchParams.get('budget') || '80000', 10)
+    parseInt(searchParams.get('budget') || '15000', 10)
   );
   const [budgetScope, setBudgetScope] = useState<BudgetScope>(() =>
     parseEnum(searchParams.get('budgetScope'), ['GROUP', 'PER_PERSON'] as const, 'GROUP')
@@ -61,7 +62,7 @@ function SearchResultsContent() {
   const [selectedInterests, setSelectedInterests] = useState<InterestTag[]>(
     searchParams.get('interests')
       ? (searchParams.get('interests')?.split(',') as InterestTag[])
-      : ['BEACH', 'ADVENTURE']
+      : []
   );
   const [month, setMonth] = useState(searchParams.get('month') || '2026-11');
 
@@ -83,11 +84,7 @@ function SearchResultsContent() {
     setError(null);
     try {
       const payload: SearchRequest = {
-        originPlaceId: origin.toLowerCase().includes('mumbai')
-          ? 'mumbai_in'
-          : origin.toLowerCase().includes('bangalore') || origin.toLowerCase().includes('bengaluru')
-          ? 'bengaluru_in'
-          : 'delhi_in',
+        originPlaceId: origin.toLowerCase().replace(/[^a-z0-9]+/g, '_'),
         originLabel: origin,
         travelers,
         budget: {
@@ -127,10 +124,11 @@ function SearchResultsContent() {
   };
 
   useEffect(() => {
-    // This effect intentionally refreshes data when search controls change.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchResults();
-  }, [travelers, budgetAmount, budgetScope, durationDays, tripScope, style, selectedInterests, month]);
+    // A slider can emit many events per second; wait briefly so only the final
+    // filter value triggers the server ranking request.
+    const timer = window.setTimeout(() => fetchResults(), 250);
+    return () => window.clearTimeout(timer);
+  }, [origin, travelers, budgetAmount, budgetScope, durationDays, tripScope, style, selectedInterests, month]);
 
   // Filter & Sort logic
   const filteredResults = useMemo(() => {
@@ -159,6 +157,7 @@ function SearchResultsContent() {
 
   const allInterestTags: { tag: InterestTag; label: string }[] = [
     { tag: 'BEACH', label: 'Beach' },
+    { tag: 'DESERT', label: 'Desert' },
     { tag: 'MOUNTAINS', label: 'Mountains' },
     { tag: 'ADVENTURE', label: 'Adventure' },
     { tag: 'NIGHTLIFE', label: 'Nightlife' },
@@ -249,18 +248,29 @@ function SearchResultsContent() {
                 </div>
                 <input
                   type="range"
-                  min={15000}
+                  min={5000}
                   max={400000}
                   step={5000}
                   value={budgetAmount}
                   onChange={(e) => setBudgetAmount(parseInt(e.target.value, 10))}
                   className="w-full accent-red-500 cursor-pointer h-1.5 bg-[#222222] rounded-lg"
                 />
+                <p className="text-[10px] text-[#A89070]">Minimum budget: ₹5,000</p>
                 <div className="flex justify-between text-[10px] text-[#A89070] font-mono">
                   <span>₹15k</span>
                   <span>₹200k</span>
                   <span>₹400k</span>
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs text-[#A89070] font-medium block">Starting from</label>
+                <LocationAutocomplete value={origin} onChange={setOrigin} type="ORIGIN" placeholder="Your city" className="w-full bg-[#0D0D0D] border border-[#F5E6D3]/[0.08] rounded-xl px-3 py-2 text-xs text-[#F5E6D3]" />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs text-[#A89070] font-medium block">Trip length</label>
+                <div className="grid grid-cols-4 gap-1 bg-[#0D0D0D] p-1 rounded-xl border border-[#F5E6D3]/[0.06]">{[1, 2, 3, 4, 5, 7].map((days) => <button key={days} onClick={() => setDurationDays(days)} className={`rounded-lg py-1.5 text-[11px] font-bold ${durationDays === days ? 'bg-red-600 text-white' : 'text-[#A89070] hover:text-[#F5E6D3]'}`}>{days}d</button>)}</div>
               </div>
 
               {/* Travelers Counter */}

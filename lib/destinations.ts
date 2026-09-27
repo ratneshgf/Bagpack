@@ -1,4 +1,5 @@
 import type { Destination, TravelStyle } from './types';
+import { NEARBY_INDIA_DESTINATIONS } from './nearby-india-destinations';
 
 // ── Destination Catalog ──────────────────────────────────────
 // 50+ seeded destinations covering domestic India + international
@@ -653,6 +654,7 @@ export const DESTINATIONS: Destination[] = [
       '10': { weatherScore: 6, crowdLevel: 'MEDIUM', description: 'Improving conditions' },
     },
   },
+  ...NEARBY_INDIA_DESTINATIONS,
 ];
 
 // ── Lookup helpers ────────────────────────────────────────────

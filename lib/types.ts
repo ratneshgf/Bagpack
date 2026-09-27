@@ -13,6 +13,7 @@ export type ClimateZone = 'TROPICAL' | 'SUBTROPICAL' | 'TEMPERATE' | 'CONTINENTA
 
 export type InterestTag =
   | 'BEACH'
+  | 'DESERT'
   | 'MOUNTAINS'
   | 'ADVENTURE'
   | 'NIGHTLIFE'

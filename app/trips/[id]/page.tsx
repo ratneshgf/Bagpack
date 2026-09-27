@@ -178,6 +178,15 @@ export default function SavedTripDetailPage() {
           </section>
         )}
 
+        <section className="mt-6 rounded-2xl border border-violet-500/30 bg-violet-500/[0.07] p-5 sm:flex sm:items-center sm:justify-between sm:gap-6">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.14em] text-violet-300">Live stay availability</p>
+            <h2 className="mt-1 text-xl font-black text-white">Find and book a hotel on MakeMyTrip</h2>
+            <p className="mt-1 text-sm text-slate-300">Search {trip.destinationCity}, choose {breakdown.nights} night{breakdown.nights === 1 ? '' : 's'} and {breakdown.rooms} room{breakdown.rooms === 1 ? '' : 's'} for current price and availability.</p>
+          </div>
+          <a href="https://www.makemytrip.com/hotels/" target="_blank" rel="noreferrer" className="mt-4 inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 py-3 text-sm font-black text-white transition-colors hover:bg-violet-500 sm:mt-0">Check live hotels <ExternalLink className="h-4 w-4" /></a>
+        </section>
+
         <section className="mt-6 rounded-2xl border border-amber-400/20 bg-amber-400/[0.06] p-5 text-sm text-amber-100"><p className="font-bold">About this breakdown</p><p className="mt-1 leading-relaxed text-amber-100/75">{trip.breakdown ? 'This is the exact cost breakdown you entered when saving the trip.' : 'This older saved trip has no itemized amounts, so the categories are a planning allocation based on total, mode, group size, and duration.'} For live driving distance, fuel, train, bus, and flight links, open Compare Routes and enter the same origin and destination.</p><Link href="/compare" className="mt-4 inline-flex items-center gap-2 font-bold text-amber-200 hover:text-white">Compare live transport <ArrowLeft className="h-4 w-4 rotate-180" /></Link></section>
       </main>
       <Footer />
