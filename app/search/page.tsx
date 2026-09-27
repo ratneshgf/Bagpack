@@ -9,6 +9,13 @@ import type {
   TravelStyle,
   InterestTag,
 } from '@/lib/types';
+
+type BudgetScope = 'GROUP' | 'PER_PERSON';
+type SortOption = 'SCORE' | 'PRICE_ASC' | 'TIME_ASC' | 'WEATHER';
+
+function parseEnum<T extends string>(value: string | null, allowed: readonly T[], fallback: T): T {
+  return value && (allowed as readonly string[]).includes(value) ? (value as T) : fallback;
+}
 import RecommendationCard from '@/components/RecommendationCard';
 import LiveIndiaResearch from '@/components/LiveIndiaResearch';
 import Footer from '@/components/Footer';
@@ -30,7 +37,6 @@ import {
 
 function SearchResultsContent() {
   const searchParams = useSearchParams();
-  const router = useRouter();
 
   // Query parameters state
   const [origin, setOrigin] = useState(searchParams.get('origin') || 'Delhi, India');
@@ -40,17 +46,17 @@ function SearchResultsContent() {
   const [budgetAmount, setBudgetAmount] = useState(
     parseInt(searchParams.get('budget') || '80000', 10)
   );
-  const [budgetScope, setBudgetScope] = useState<'GROUP' | 'PER_PERSON'>(
-    (searchParams.get('budgetScope') as any) || 'GROUP'
+  const [budgetScope, setBudgetScope] = useState<BudgetScope>(() =>
+    parseEnum(searchParams.get('budgetScope'), ['GROUP', 'PER_PERSON'] as const, 'GROUP')
   );
   const [durationDays, setDurationDays] = useState(
     parseInt(searchParams.get('duration') || '4', 10)
   );
-  const [tripScope, setTripScope] = useState<TripScope>(
-    (searchParams.get('tripScope') as any) || 'BOTH'
+  const [tripScope, setTripScope] = useState<TripScope>(() =>
+    parseEnum(searchParams.get('tripScope'), ['DOMESTIC', 'INTERNATIONAL', 'BOTH'] as const, 'BOTH')
   );
-  const [style, setStyle] = useState<TravelStyle>(
-    (searchParams.get('style') as any) || 'BUDGET'
+  const [style, setStyle] = useState<TravelStyle>(() =>
+    parseEnum(searchParams.get('style'), ['BACKPACKER', 'BUDGET', 'COMFORT', 'LUXURY'] as const, 'BUDGET')
   );
   const [selectedInterests, setSelectedInterests] = useState<InterestTag[]>(
     searchParams.get('interests')
@@ -111,15 +117,18 @@ function SearchResultsContent() {
 
       const data = await res.json();
       setResults(data.recommendations || []);
-    } catch (err: any) {
-      console.error(err);
-      setError(err.message || 'Error running recommendation engine');
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Error running recommendation engine';
+      console.error(error);
+      setError(message);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
+    // This effect intentionally refreshes data when search controls change.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchResults();
   }, [travelers, budgetAmount, budgetScope, durationDays, tripScope, style, selectedInterests, month]);
 
@@ -194,7 +203,7 @@ function SearchResultsContent() {
                 <span className="text-[#A89070] hidden sm:inline">Sort:</span>
                 <select
                   value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as any)}
+                  onChange={(e) => setSortBy(e.target.value as SortOption)}
                   className="bg-[#1A1A1A] border border-[#F5E6D3]/[0.1] rounded-lg px-2.5 py-1.5 text-xs text-[#F5E6D3] font-medium focus:outline-none focus:border-red-500"
                 >
                   <option value="SCORE">Highest Match Score</option>
@@ -327,13 +336,7 @@ function SearchResultsContent() {
                     return (
                       <button
                         key={tag}
-                        onClick={() => {
-                          if (isSelected) {
-                            setSelectedInterests(selectedInterests.filter((t) => t !== tag));
-                          } else {
-                            setSelectedInterests([...selectedInterests, tag]);
-                          }
-                        }}
+                      onClick={() => setSelectedInterests(isSelected ? [] : [tag])}
                         className={`text-xs px-2.5 py-1 rounded-lg border font-medium transition-all ${
                           isSelected
                             ? 'bg-red-600/25 border-red-500/40 text-red-300'

@@ -3,29 +3,9 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import {
-  MapPin,
-  Users,
-  Wallet,
-  Calendar,
-  Sparkles,
-  ArrowRight,
-  ShieldCheck,
-  CheckCircle2,
-  TrendingDown,
-  Search,
-} from 'lucide-react';
+import { ArrowDownRight, ArrowRight, Check, Compass, MapPin, Search, Sparkles, Users, Wallet } from 'lucide-react';
 import Footer from '@/components/Footer';
-
-const POPULAR_ORIGINS = [
-  'New Delhi (DEL)',
-  'Mumbai (BOM)',
-  'Bengaluru (BLR)',
-  'Hyderabad (HYD)',
-  'Chennai (MAA)',
-  'Kolkata (CCU)',
-  'Pune (PNQ)',
-];
+import LocationAutocomplete from '@/components/LocationAutocomplete';
 
 const BUDGET_OPTIONS = [
   { label: '₹15,000 / person', value: 15000 },
@@ -36,287 +16,58 @@ const BUDGET_OPTIONS = [
 ];
 
 const POPULAR_DESTINATIONS = [
-  {
-    name: 'Goa',
-    tag: 'Beach & Sunsets',
-    cost: '₹18,500',
-    duration: '4 Days',
-    img: 'https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?w=800',
-    slug: 'goa-india',
-  },
-  {
-    name: 'Manali',
-    tag: 'Himalayan Snow',
-    cost: '₹14,200',
-    duration: '4 Days',
-    img: 'https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?w=800',
-    slug: 'manali-india',
-  },
-  {
-    name: 'Bangkok',
-    tag: 'Visa-Free Escape',
-    cost: '₹34,000',
-    duration: '5 Days',
-    img: 'https://images.unsplash.com/photo-1508009603885-50cf7c579365?w=800',
-    slug: 'bangkok-thailand',
-  },
-  {
-    name: 'Rishikesh',
-    tag: 'Rafting & Nature',
-    cost: '₹8,500',
-    duration: '3 Days',
-    img: 'https://images.unsplash.com/photo-1544735716-392fe2489ffa?w=800',
-    slug: 'rishikesh-india',
-  },
+  { name: 'Goa', tag: 'Beach & sunsets', cost: '₹18,500', duration: '4 days', img: 'https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?w=800', slug: 'goa-india', color: 'bg-[#ff6b5f]' },
+  { name: 'Manali', tag: 'Himalayan snow', cost: '₹14,200', duration: '4 days', img: 'https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?w=800', slug: 'manali-india', color: 'bg-[#91b7ff]' },
+  { name: 'Bangkok', tag: 'Visa-free escape', cost: '₹34,000', duration: '5 days', img: 'https://images.unsplash.com/photo-1508009603885-50cf7c579365?w=800', slug: 'bangkok-thailand', color: 'bg-[#f7c948]' },
+  { name: 'Rishikesh', tag: 'Rafting & nature', cost: '₹8,500', duration: '3 days', img: 'https://images.unsplash.com/photo-1544735716-392fe2489ffa?w=800', slug: 'rishikesh-india', color: 'bg-[#8fe3c2]' },
 ];
 
 export default function HomePage() {
   const router = useRouter();
-
   const [origin, setOrigin] = useState('New Delhi (DEL)');
+  const [place, setPlace] = useState('');
   const [travelers, setTravelers] = useState(4);
   const [budgetPerPerson, setBudgetPerPerson] = useState(25000);
 
   const handleSearch = (interest?: string) => {
-    const totalGroupBudget = budgetPerPerson * travelers;
-    const params = new URLSearchParams({
-      origin,
-      travelers: travelers.toString(),
-      budget: totalGroupBudget.toString(),
-      budgetScope: 'GROUP',
-      duration: '4',
-      tripScope: 'BOTH',
-      style: budgetPerPerson > 40000 ? 'COMFORT' : 'BUDGET',
-      interests: interest || 'BEACH,ADVENTURE',
-      month: '2026-11',
-    });
+    const params = new URLSearchParams({ origin, travelers: travelers.toString(), budget: (budgetPerPerson * travelers).toString(), budgetScope: 'GROUP', duration: '4', tripScope: 'BOTH', style: budgetPerPerson > 40000 ? 'COMFORT' : 'BUDGET', interests: interest || 'BEACH,ADVENTURE', month: '2026-11' });
     router.push(`/search?${params.toString()}`);
   };
 
   return (
-    <div className="w-full flex flex-col items-center justify-center bg-[#0A0A0A] text-[#F5E6D3]">
-      {/* Centered Hero Section */}
-      <div
-        className="w-full max-w-6xl px-4 sm:px-8 pt-16 sm:pt-24 pb-20 flex flex-col items-center text-center"
-        style={{ marginLeft: 'auto', marginRight: 'auto' }}
-      >
-        {/* Simple Badge */}
-        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-red-500/10 border border-red-500/20 text-red-300 text-xs font-semibold mb-6">
-          <Sparkles className="w-3.5 h-3.5 text-[#D4B896]" />
-          Budget-First Travel Intelligence
-        </div>
-
-        {/* Hero Title */}
-        <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black font-['Outfit'] tracking-tight max-w-3xl leading-tight text-[#F5E6D3]">
-          Where can your budget take you?
-        </h1>
-
-        {/* Subtitle */}
-        <p className="mt-5 text-base sm:text-lg text-[#A89070] max-w-xl leading-relaxed">
-          Tell us your budget and group size. We calculate real flights, hotels, food, and local transit to show where you can realistically go.
-        </p>
-
-        {/* Clean, Spacious Search Bar (Centered) */}
-        <div
-          className="w-full max-w-4xl mt-12 bg-[#151515]/90 border border-[#F5E6D3]/[0.1] rounded-3xl p-4 sm:p-5 shadow-2xl backdrop-blur-xl"
-          style={{ marginLeft: 'auto', marginRight: 'auto' }}
-        >
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {/* 1. Origin */}
-            <div className="p-3.5 rounded-2xl bg-[#F5E6D3]/[0.03] border border-[#F5E6D3]/[0.06] text-left">
-              <div className="text-[11px] font-semibold text-[#A89070] uppercase tracking-wider flex items-center gap-1.5 mb-1">
-                <MapPin className="w-3.5 h-3.5 text-[#D4B896]" />
-                Leaving From
-              </div>
-              <select
-                value={origin}
-                onChange={(e) => setOrigin(e.target.value)}
-                className="w-full bg-transparent text-sm font-bold text-[#F5E6D3] focus:outline-none cursor-pointer"
-              >
-                {POPULAR_ORIGINS.map((city) => (
-                  <option key={city} value={city} className="bg-[#151515] text-[#F5E6D3]">
-                    {city}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* 2. Group Size */}
-            <div className="p-3.5 rounded-2xl bg-[#F5E6D3]/[0.03] border border-[#F5E6D3]/[0.06] text-left">
-              <div className="text-[11px] font-semibold text-[#A89070] uppercase tracking-wider flex items-center gap-1.5 mb-1">
-                <Users className="w-3.5 h-3.5 text-red-400" />
-                Group Size
-              </div>
-              <select
-                value={travelers}
-                onChange={(e) => setTravelers(parseInt(e.target.value, 10))}
-                className="w-full bg-transparent text-sm font-bold text-[#F5E6D3] focus:outline-none cursor-pointer"
-              >
-                <option value={1} className="bg-[#151515]">Solo (1 Traveler)</option>
-                <option value={2} className="bg-[#151515]">Couple (2 People)</option>
-                <option value={4} className="bg-[#151515]">4 Friends</option>
-                <option value={6} className="bg-[#151515]">6 Friends</option>
-                <option value={8} className="bg-[#151515]">8+ Group</option>
-              </select>
-            </div>
-
-            {/* 3. Budget Per Person */}
-            <div className="p-3.5 rounded-2xl bg-[#F5E6D3]/[0.03] border border-[#F5E6D3]/[0.06] text-left">
-              <div className="text-[11px] font-semibold text-[#A89070] uppercase tracking-wider flex items-center gap-1.5 mb-1">
-                <Wallet className="w-3.5 h-3.5 text-[#D4B896]" />
-                Budget Per Person
-              </div>
-              <select
-                value={budgetPerPerson}
-                onChange={(e) => setBudgetPerPerson(parseInt(e.target.value, 10))}
-                className="w-full bg-transparent text-sm font-bold text-[#F5E6D3] focus:outline-none cursor-pointer"
-              >
-                {BUDGET_OPTIONS.map((b) => (
-                  <option key={b.value} value={b.value} className="bg-[#151515]">
-                    {b.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+    <main className="neo-page w-full overflow-hidden bg-[#f7f1e8] text-[#161616]">
+      <section className="relative isolate min-h-[760px] border-b-[3px] border-[#161616] bg-[#193968]">
+        <div className="absolute inset-0 -z-10 bg-[url('/images/seven-wonders-hero.png')] bg-cover bg-center opacity-80" />
+        <div className="absolute inset-0 -z-10 bg-gradient-to-r from-[#142c4d]/95 via-[#142c4d]/70 to-[#142c4d]/25" />
+        <div className="absolute inset-0 -z-10 bg-[#f04b3e]/10 mix-blend-multiply" />
+        <div className="mx-auto grid w-full max-w-7xl gap-12 px-5 pb-20 pt-20 sm:px-8 lg:grid-cols-[1.05fr_.95fr] lg:items-center lg:px-12 lg:pt-28">
+          <div className="max-w-3xl text-white">
+            <div className="neo-chip mb-7 inline-flex items-center gap-2 bg-[#f7c948] text-[#161616]"><Sparkles className="h-4 w-4" /> Budget-first travel intelligence</div>
+            <h1 className="neo-title max-w-3xl text-[clamp(3.8rem,8vw,7.6rem)] leading-[.86] tracking-[-.08em]">Your budget.<br />Your <span className="text-[#f7c948] [text-shadow:4px_4px_0_#161616]">world.</span></h1>
+            <p className="mt-8 max-w-xl text-lg font-semibold leading-relaxed text-[#fff9ee] sm:text-xl">Tell us what you can spend. We turn real travel costs into a trip you can actually book.</p>
+            <div className="mt-9 flex flex-wrap items-center gap-4 text-sm font-black uppercase tracking-[.16em]"><span className="flex items-center gap-2"><span className="h-3 w-3 rounded-full border-2 border-[#161616] bg-[#8fe3c2]" /> Flights</span><span className="flex items-center gap-2"><span className="h-3 w-3 rounded-full border-2 border-[#161616] bg-[#f7c948]" /> Stays</span><span className="flex items-center gap-2"><span className="h-3 w-3 rounded-full border-2 border-[#161616] bg-[#ff6b5f]" /> Food + local</span></div>
           </div>
-
-          {/* Big Search Action Button */}
-          <div className="mt-4">
-            <button
-              type="button"
-              onClick={() => handleSearch()}
-              className="w-full py-4 rounded-2xl bg-gradient-to-r from-red-700 via-red-600 to-red-500 hover:from-red-600 hover:to-red-400 text-white font-bold text-base shadow-xl shadow-red-600/25 transition-all flex items-center justify-center gap-2.5 cursor-pointer hover:scale-[1.01] active:scale-[0.99]"
-            >
-              <Search className="w-5 h-5" />
-              Explore Trips Within My Budget
-            </button>
-          </div>
-
-          {/* Quick Vibe Chips */}
-          <div className="mt-4 pt-3 border-t border-[#F5E6D3]/[0.06] flex flex-wrap items-center justify-center gap-2 text-xs">
-            <span className="text-[#A89070] mr-1">Popular categories:</span>
-            <button
-              type="button"
-              onClick={() => handleSearch('BEACH')}
-              className="px-3 py-1 rounded-full bg-[#F5E6D3]/[0.04] hover:bg-[#F5E6D3]/[0.08] text-[#D4B896] border border-[#F5E6D3]/[0.06] transition-colors"
-            >
-              🏖️ Beaches
-            </button>
-            <button
-              type="button"
-              onClick={() => handleSearch('MOUNTAINS')}
-              className="px-3 py-1 rounded-full bg-[#F5E6D3]/[0.04] hover:bg-[#F5E6D3]/[0.08] text-[#D4B896] border border-[#F5E6D3]/[0.06] transition-colors"
-            >
-              🏔️ Mountains
-            </button>
-            <button
-              type="button"
-              onClick={() => handleSearch('NIGHTLIFE')}
-              className="px-3 py-1 rounded-full bg-[#F5E6D3]/[0.04] hover:bg-[#F5E6D3]/[0.08] text-[#D4B896] border border-[#F5E6D3]/[0.06] transition-colors"
-            >
-              🎉 Nightlife
-            </button>
-            <button
-              type="button"
-              onClick={() => handleSearch('RELAXATION')}
-              className="px-3 py-1 rounded-full bg-[#F5E6D3]/[0.04] hover:bg-[#F5E6D3]/[0.08] text-[#D4B896] border border-[#F5E6D3]/[0.06] transition-colors"
-            >
-              🧘 Relaxing
-            </button>
+          <div className="neo-card bg-[#f7f1e8] p-4 sm:p-6">
+            <div className="flex items-start justify-between gap-5 border-b-[3px] border-[#161616] pb-5"><div><p className="text-xs font-black uppercase tracking-[.18em] text-[#f04b3e]">Start here</p><h2 className="neo-heading mt-1 text-3xl">Build your trip</h2></div><div className="neo-sticker rotate-6 bg-[#f7c948]">01</div></div>
+            <div className="mt-5 space-y-4">
+              <label className="neo-field block"><span className="neo-label"><MapPin className="h-4 w-4" /> Leaving from</span><LocationAutocomplete value={origin} onChange={setOrigin} type="ORIGIN" placeholder="Type a city or airport" className="w-full bg-transparent text-base font-black text-[#161616] outline-none placeholder:text-[#777]" /></label>
+              <label className="neo-field block"><span className="neo-label"><Compass className="h-4 w-4" /> Search any hidden place</span><LocationAutocomplete value={place} onChange={setPlace} type="DESTINATION" placeholder="Try Tirthan Valley, Ziro, Gokarna..." className="w-full bg-transparent text-base font-black text-[#161616] outline-none placeholder:text-[#777]" /></label>
+              {place.trim() && <button type="button" onClick={() => router.push(`/place?name=${encodeURIComponent(place.trim())}`)} className="neo-button w-full bg-[#8fe3c2] py-3 text-sm">Plan this place <ArrowRight className="h-4 w-4" /></button>}
+              <div className="grid gap-4 sm:grid-cols-2"><label className="neo-field block"><span className="neo-label"><Users className="h-4 w-4" /> Travellers</span><select value={travelers} onChange={(e) => setTravelers(Number(e.target.value))} className="w-full bg-transparent text-base font-black outline-none"><option value={1}>Solo (1)</option><option value={2}>Couple (2)</option><option value={4}>4 friends</option><option value={6}>6 friends</option><option value={8}>8+ group</option></select></label><label className="neo-field block"><span className="neo-label"><Wallet className="h-4 w-4" /> Per person</span><select value={budgetPerPerson} onChange={(e) => setBudgetPerPerson(Number(e.target.value))} className="w-full bg-transparent text-base font-black outline-none">{BUDGET_OPTIONS.map((budget) => <option key={budget.value} value={budget.value}>{budget.label}</option>)}</select></label></div>
+              <button type="button" onClick={() => handleSearch()} className="neo-button neo-button-red mt-2 w-full py-4 text-base"><Search className="h-5 w-5" /> Show me the possibilities <ArrowRight className="h-5 w-5" /></button>
+              <div className="flex flex-wrap items-center gap-2 pt-1 text-xs font-black uppercase tracking-wider"><span className="mr-1 text-[#555]">I&apos;m into:</span>{['BEACH', 'MOUNTAINS', 'NIGHTLIFE', 'RELAXATION'].map((interest) => <button key={interest} type="button" onClick={() => handleSearch(interest)} className="neo-pill hover:bg-[#f7c948]">{interest.toLowerCase()}</button>)}</div>
+            </div>
           </div>
         </div>
-
-        {/* 3 Value Pillars */}
-        <div className="mt-16 w-full max-w-4xl grid grid-cols-1 sm:grid-cols-3 gap-6 pt-10 border-t border-[#F5E6D3]/[0.06]">
-          <div className="flex flex-col items-center text-center space-y-2">
-            <div className="w-10 h-10 rounded-xl bg-red-500/10 text-red-400 flex items-center justify-center font-bold">
-              <ShieldCheck className="w-5 h-5" />
-            </div>
-            <h3 className="text-sm font-bold text-[#F5E6D3]">Realistic Pricing</h3>
-            <p className="text-xs text-[#A89070] max-w-xs leading-relaxed">
-              We only show places that genuinely fit within your budget limit.
-            </p>
-          </div>
-
-          <div className="flex flex-col items-center text-center space-y-2">
-            <div className="w-10 h-10 rounded-xl bg-[#D4B896]/10 text-[#D4B896] flex items-center justify-center font-bold">
-              <CheckCircle2 className="w-5 h-5" />
-            </div>
-            <h3 className="text-sm font-bold text-[#F5E6D3]">All Costs Included</h3>
-            <p className="text-xs text-[#A89070] max-w-xs leading-relaxed">
-              Roundtrip flights/trains, stays, meals, and local cabs are factored in.
-            </p>
-          </div>
-
-          <div className="flex flex-col items-center text-center space-y-2">
-            <div className="w-10 h-10 rounded-xl bg-[#D4B896]/10 text-[#D4B896] flex items-center justify-center font-bold">
-              <TrendingDown className="w-5 h-5" />
-            </div>
-            <h3 className="text-sm font-bold text-[#F5E6D3]">Group Split Savings</h3>
-            <p className="text-xs text-[#A89070] max-w-xs leading-relaxed">
-              Room sharing and shared road trip fuel reduce the cost per person.
-            </p>
-          </div>
-        </div>
-
-        {/* Trending Destinations Row (Clean, Centered, Spacious) */}
-        <div className="mt-20 w-full max-w-5xl text-left">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h2 className="text-2xl font-bold font-['Outfit'] text-[#F5E6D3]">
-                Popular Destinations
-              </h2>
-              <p className="text-xs text-[#A89070] mt-1">
-                Estimated all-inclusive prices for 4 travelers
-              </p>
-            </div>
-            <Link
-              href="/search"
-              className="text-xs font-bold text-red-400 hover:text-red-300 flex items-center gap-1"
-            >
-              See All <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            {POPULAR_DESTINATIONS.map((dest) => (
-              <Link
-                key={dest.name}
-                href={`/destination/${dest.slug}`}
-                className="group bg-[#151515] border border-[#F5E6D3]/[0.08] hover:border-red-500/40 rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all flex flex-col"
-              >
-                <div className="relative h-44 w-full overflow-hidden">
-                  <img
-                    src={dest.img}
-                    alt={dest.name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    loading="lazy"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#151515] via-transparent to-transparent" />
-                  <span className="absolute bottom-2.5 left-3 text-[11px] font-semibold px-2.5 py-0.5 rounded-md bg-black/60 text-[#F5E6D3] backdrop-blur-sm">
-                    {dest.tag}
-                  </span>
-                </div>
-
-                <div className="p-4 flex-1 flex flex-col justify-between">
-                  <h3 className="text-base font-bold text-[#F5E6D3] group-hover:text-red-300 transition-colors">
-                    {dest.name}
-                  </h3>
-                  <div className="pt-2 mt-2 border-t border-[#F5E6D3]/[0.06] flex items-center justify-between text-xs">
-                    <span className="text-[#A89070]">{dest.duration}</span>
-                    <span className="font-bold text-red-300 font-mono">
-                      From {dest.cost} / pax
-                    </span>
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Clean Global Footer */}
+        <div className="absolute bottom-0 left-0 hidden -translate-x-1/4 translate-y-1/2 rotate-[-12deg] lg:block"><div className="neo-sticker-lg bg-[#f04b3e] text-white">GO<br />SOMEWHERE<br />GOOD <ArrowDownRight className="mt-1 h-7 w-7" /></div></div>
+      </section>
+      <section className="mx-auto w-full max-w-7xl px-5 py-20 sm:px-8 lg:px-12">
+        <div className="grid gap-12 lg:grid-cols-[.7fr_1.3fr] lg:items-end"><div><p className="neo-kicker">How it works</p><h2 className="neo-heading mt-3 text-5xl sm:text-6xl">Big trips.<br /><span className="text-[#f04b3e]">No guesswork.</span></h2></div><div className="grid gap-4 sm:grid-cols-3">{[['01', 'Set the limit', 'Start with a real number, not a vague dream.'], ['02', 'Pick the vibe', 'Beach, mountains, food, or a little bit of everything.'], ['03', 'Get the route', 'See flights, stays, food, and local transport together.']].map(([number, title, copy]) => <article key={number} className="neo-card bg-white p-5"><div className="neo-number bg-[#91b7ff]">{number}</div><h3 className="mt-4 text-xl font-black">{title}</h3><p className="mt-2 text-sm font-semibold leading-relaxed text-[#555]">{copy}</p></article>)}</div></div>
+        <div className="mt-24 flex flex-col justify-between gap-5 sm:flex-row sm:items-end"><div><p className="neo-kicker">Don&apos;t overthink it</p><h2 className="neo-heading mt-2 text-5xl">Popular right now</h2></div><Link href="/search" className="neo-link">See every destination <ArrowRight className="h-5 w-5" /></Link></div>
+        <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">{POPULAR_DESTINATIONS.map((destination) => <Link key={destination.name} href={`/destination/${destination.slug}`} className="neo-card group overflow-hidden bg-white"><div className="relative h-52 overflow-hidden border-b-[3px] border-[#161616]"><img src={destination.img} alt={destination.name} className="h-full w-full object-cover transition duration-300 group-hover:scale-105" /><span className={`absolute left-3 top-3 neo-tag ${destination.color}`}>{destination.tag}</span></div><div className="p-4"><div className="flex items-end justify-between gap-2"><h3 className="text-2xl font-black">{destination.name}</h3><span className="text-right text-xs font-black uppercase leading-tight text-[#f04b3e]">from<br /><span className="text-sm text-[#161616]">{destination.cost}</span></span></div><div className="mt-4 flex items-center justify-between border-t-2 border-[#161616] pt-3 text-xs font-black uppercase tracking-wider"><span>{destination.duration}</span><span className="flex items-center gap-1">Explore <ArrowRight className="h-3.5 w-3.5" /></span></div></div></Link>)}</div>
+      </section>
+      <section className="border-y-[3px] border-[#161616] bg-[#f7c948] px-5 py-12 sm:px-8 lg:px-12"><div className="mx-auto flex max-w-7xl flex-col items-start justify-between gap-6 sm:flex-row sm:items-center"><div className="flex items-center gap-4"><div className="neo-sticker bg-[#8fe3c2]"><Check className="h-6 w-6" /></div><p className="max-w-xl text-xl font-black leading-tight sm:text-2xl">Every route is calculated with the costs that usually surprise you.</p></div><Link href="/search" className="neo-button bg-[#161616] text-white">Plan my trip <Compass className="h-5 w-5" /></Link></div></section>
       <Footer />
-    </div>
+    </main>
   );
 }

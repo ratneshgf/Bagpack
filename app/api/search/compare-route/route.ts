@@ -44,8 +44,11 @@ export async function POST(req: Request) {
       options,
       timestamp: new Date().toISOString(),
     });
-  } catch (err: any) {
-    console.error('Compare route error:', err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+  } catch (error: unknown) {
+    console.error('Compare route error:', error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Unable to compare routes.' },
+      { status: 500 },
+    );
   }
 }

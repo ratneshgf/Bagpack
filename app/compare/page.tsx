@@ -1,13 +1,14 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { DESTINATIONS, findDestination } from '@/lib/destinations';
-import { generateTransportOptions } from '@/lib/cost-engine';
 import type { TransportOption } from '@/lib/types';
+import type { ProviderStatus } from '@/lib/live-transport';
 import Footer from '@/components/Footer';
+import LocationAutocomplete from '@/components/LocationAutocomplete';
 import {
   GitCompare,
   Plane,
@@ -19,47 +20,13 @@ import {
   Zap,
   Award,
   Users,
-  MapPin,
-  HelpCircle,
-  ShieldCheck,
   Fuel,
   Receipt,
   ArrowRight,
+  Bookmark,
 } from 'lucide-react';
 
 const OpenStreetMapView = dynamic(() => import('@/components/OpenStreetMapView'), { ssr: false });
-
-// One-way road/air distance estimates from India, used for the live transit budget.
-// Keeping these keyed by destination prevents every domestic destination from being
-// priced as the Goa route.
-const ROUTE_DISTANCES_KM: Record<string, number> = {
-  goa_in: 1200,
-  manali_in: 560,
-  jaisalmer_in: 780,
-  rishikesh_in: 260,
-  varanasi_in: 820,
-  darjeeling_in: 1500,
-  bangkok_th: 3000,
-  phuket_th: 3200,
-  dubai_ae: 2200,
-  kathmandu_np: 820,
-  colombo_lk: 2400,
-  maldives_mv: 2000,
-  bali_id: 4500,
-  singapore_sg: 4200,
-  kuala_lumpur_my: 4100,
-  tokyo_jp: 5800,
-  paris_fr: 7200,
-};
-
-const ORIGIN_SUGGESTIONS = [
-  'New Delhi (DEL)', 'Mumbai (BOM)', 'Bengaluru (BLR)', 'Hyderabad (HYD)',
-  'Chennai (MAA)', 'Kolkata (CCU)', 'Pune (PNQ)', 'Jaipur (JAI)', 'Kochi (COK)',
-];
-
-function getRouteDistance(destinationId: string, isInternational: boolean) {
-  return ROUTE_DISTANCES_KM[destinationId] ?? (isInternational ? 3500 : 900);
-}
 
 function CompareContent() {
   const searchParams = useSearchParams();
@@ -68,42 +35,37 @@ function CompareContent() {
 
   const initialDestination = findDestination(initialDestSlug) ?? DESTINATIONS[0];
   const [origin, setOrigin] = useState('New Delhi (DEL)');
-  // Store the catalog ID, not a URL label. This makes the selected option and
-  // every calculation use the same destination record.
-  const [destinationId, setDestinationId] = useState(initialDestination.id);
   const [destinationInput, setDestinationInput] = useState(
     `${initialDestination.city}, ${initialDestination.country}`
   );
   const [travelers, setTravelers] = useState(initialTravelers);
+  const [departureDate, setDepartureDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [carMileageKmPerLiter, setCarMileageKmPerLiter] = useState(15);
+  const [bikeMileageKmPerLiter, setBikeMileageKmPerLiter] = useState(45);
+  const [fuelPricePerLiter, setFuelPricePerLiter] = useState(105);
+  const [tripDays, setTripDays] = useState(4);
+  const [hotelNightPerRoom, setHotelNightPerRoom] = useState(2500);
+  const [foodPerPersonPerDay, setFoodPerPersonPerDay] = useState(700);
+  const [activitiesPerPersonPerDay, setActivitiesPerPersonPerDay] = useState(500);
+  const [localTravelPerDay, setLocalTravelPerDay] = useState(800);
+  const [selectedTransportMode, setSelectedTransportMode] = useState<'CAR' | 'BIKE' | 'AIR' | 'TRAIN' | 'BUS'>('CAR');
+  const [airFarePerPerson, setAirFarePerPerson] = useState(0);
+  const [trainFarePerPerson, setTrainFarePerPerson] = useState(0);
+  const [busFarePerPerson, setBusFarePerPerson] = useState(0);
   const [loading, setLoading] = useState(false);
   const [roadError, setRoadError] = useState<string | null>(null);
+  const [savingTrip, setSavingTrip] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [, setProviders] = useState<ProviderStatus | null>(null);
 
-  const destination = DESTINATIONS.find((item) => item.id === destinationId) ?? initialDestination;
-  const isInternational = destination.countryCode !== 'IN';
-  const distanceKm = getRouteDistance(destination.id, isInternational);
-
+  const catalogDestination = findDestination(destinationInput);
   const [options, setOptions] = useState<TransportOption[]>([]);
-
-  const selectDestination = (value: string) => {
-    setDestinationInput(value);
-    const matchedDestination = findDestination(value);
-    if (matchedDestination) setDestinationId(matchedDestination.id);
-  };
 
   useEffect(() => {
     let cancelled = false;
-    const fallbackOptions = generateTransportOptions(
-      distanceKm,
-      travelers,
-      isInternational,
-      'IN',
-      destination.countryCode
-    );
-    const nonRoadOptions = fallbackOptions.filter((option) => option.mode !== 'CAR' && option.mode !== 'BIKE');
-    setOptions(nonRoadOptions);
-    setRoadError(null);
-
     const loadLiveRoadOptions = async () => {
+      setOptions([]);
+      setRoadError(null);
       setLoading(true);
       try {
         const response = await fetch('/api/routes/road', {
@@ -111,15 +73,20 @@ function CompareContent() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             origin,
-            destination: `${destination.city}, ${destination.country}`,
+            destination: destinationInput,
             travelers,
+            departureDate,
+            carMileageKmPerLiter,
+            bikeMileageKmPerLiter,
+            fuelPricePerLiter,
           }),
         });
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || 'Live road data is unavailable.');
         if (cancelled) return;
 
-        setOptions([...nonRoadOptions, ...data.options].sort((a, b) => a.totalCost - b.totalCost));
+        setOptions(data.options);
+        setProviders(data.providers ?? null);
       } catch (error) {
         if (!cancelled) {
           setRoadError(error instanceof Error ? error.message : 'Live road data is unavailable.');
@@ -134,7 +101,7 @@ function CompareContent() {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [origin, destinationId, destination.city, destination.country, destination.countryCode, travelers, distanceKm, isInternational]);
+  }, [origin, destinationInput, travelers, departureDate, carMileageKmPerLiter, bikeMileageKmPerLiter, fuelPricePerLiter]);
 
   const getModeIcon = (mode: string) => {
     switch (mode) {
@@ -176,15 +143,99 @@ function CompareContent() {
     return null;
   };
 
-  // Road math uses the live OpenStreetMap/OSRM route.
   const carRoad = options.find((option) => option.mode === 'CAR')?.roadBreakdown;
-  const fuelRate = carRoad?.fuelPricePerLiter ?? 105;
-  const carMileage = carRoad?.mileageKmPerLiter ?? 15;
-  const roundtripDist = carRoad?.roundTripDistanceKm ?? distanceKm * 2;
-  const estimatedFuel = carRoad?.fuelCost ?? Math.round((roundtripDist / carMileage) * fuelRate);
-  const estimatedTolls = carRoad?.tollEstimate ?? 0;
-  const totalRoadCost = estimatedFuel + estimatedTolls;
-  const roadPerPerson = Math.round(totalRoadCost / travelers);
+  const fuelRate = carRoad?.fuelPricePerLiter;
+  const carMileage = carRoad?.mileageKmPerLiter;
+  const roundtripDist = carRoad?.roundTripDistanceKm;
+  const estimatedFuel = carRoad?.fuelCost;
+  const estimatedTolls = carRoad?.tollEstimate;
+  const tollsAvailable = carRoad?.tollSource !== 'UNAVAILABLE';
+  const totalRoadCost = estimatedFuel !== undefined && estimatedTolls !== undefined ? estimatedFuel + (tollsAvailable ? estimatedTolls : 0) : undefined;
+  const roadPerPerson = totalRoadCost !== undefined ? Math.round(totalRoadCost / travelers) : undefined;
+  const selectedRoadOption = options.find((option) => option.mode === selectedTransportMode);
+  const selectedTransportTotal = selectedTransportMode === 'AIR'
+    ? airFarePerPerson * travelers
+    : selectedTransportMode === 'TRAIN'
+      ? trainFarePerPerson * travelers
+      : selectedTransportMode === 'BUS'
+        ? busFarePerPerson * travelers
+        : selectedRoadOption?.totalCost ?? 0;
+  const selectedTransportReady = selectedTransportMode === 'CAR' || selectedTransportMode === 'BIKE'
+    ? Boolean(selectedRoadOption)
+    : selectedTransportMode === 'AIR'
+      ? airFarePerPerson > 0
+      : selectedTransportMode === 'TRAIN'
+        ? trainFarePerPerson > 0
+        : busFarePerPerson > 0;
+  const tripTotal = useMemo(() => {
+    const nights = Math.max(tripDays - 1, 1);
+    const rooms = Math.ceil(travelers / 2);
+    const transport = selectedTransportTotal;
+    const stay = hotelNightPerRoom * rooms * nights;
+    const food = foodPerPersonPerDay * travelers * tripDays;
+    const activities = activitiesPerPersonPerDay * travelers * tripDays;
+    const localTravel = localTravelPerDay * tripDays;
+    return { nights, rooms, transport, stay, food, activities, localTravel, total: transport + stay + food + activities + localTravel };
+  }, [selectedTransportTotal, tripDays, travelers, hotelNightPerRoom, foodPerPersonPerDay, activitiesPerPersonPerDay, localTravelPerDay]);
+  const convenience = carRoad?.distanceKm
+    ? carRoad.distanceKm > 1200 ? 'This is a long road journey. Flight is usually the most convenient option; use the live flight search card below.'
+      : carRoad.distanceKm > 500 ? 'For this distance, compare car fuel cost with train or flight before deciding.'
+      : 'This is a practical road-trip distance. Car is likely convenient for a group and luggage.'
+    : 'Enter origin and destination to get a route-based convenience recommendation.';
+  const transportChoices = [
+    { mode: 'CAR' as const, label: 'Car', total: options.find((option) => option.mode === 'CAR')?.totalCost, note: 'Live road route + fuel' },
+    { mode: 'BIKE' as const, label: 'Bike', total: options.find((option) => option.mode === 'BIKE')?.totalCost, note: 'Live road route + fuel' },
+    { mode: 'TRAIN' as const, label: 'Train', total: trainFarePerPerson > 0 ? trainFarePerPerson * travelers : undefined, note: 'Enter IRCTC return fare' },
+    { mode: 'BUS' as const, label: 'Bus', total: busFarePerPerson > 0 ? busFarePerPerson * travelers : undefined, note: 'Enter redBus return fare' },
+    { mode: 'AIR' as const, label: 'Flight', total: airFarePerPerson > 0 ? airFarePerPerson * travelers : undefined, note: 'Enter Google Flights return fare' },
+  ];
+
+  const saveTrip = async () => {
+    if (!selectedTransportReady) {
+      setSaveMessage(`Add the verified return ${selectedTransportMode.toLowerCase()} fare, or wait for the road route, before saving.`);
+      return;
+    }
+
+    setSavingTrip(true);
+    setSaveMessage(null);
+    const [city = destinationInput, country = 'India'] = destinationInput.split(',').map((part) => part.trim());
+    const slug = catalogDestination?.slug ?? `custom-${destinationInput.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '').slice(0, 80)}`;
+    try {
+      const response = await fetch('/api/trips', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: `${city} ${tripDays}-day trip`,
+          destinationSlug: slug,
+          destinationCity: city,
+          destinationCountry: country,
+          origin,
+          travelers,
+          durationDays: tripDays,
+          estimatedCostPerPerson: Math.round(tripTotal.total / travelers),
+          totalGroupCost: Math.round(tripTotal.total),
+          travelStyle: 'CUSTOM',
+          selectedTransportMode,
+          breakdown: {
+            transport: Math.round(tripTotal.transport),
+            stay: Math.round(tripTotal.stay),
+            food: Math.round(tripTotal.food),
+            activities: Math.round(tripTotal.activities),
+            localTravel: Math.round(tripTotal.localTravel),
+            nights: tripTotal.nights,
+            rooms: tripTotal.rooms,
+          },
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Unable to save your trip.');
+      setSaveMessage('Trip saved. Open Saved Trips to view the full breakdown.');
+    } catch (saveError) {
+      setSaveMessage(saveError instanceof Error ? saveError.message : 'Unable to save your trip.');
+    } finally {
+      setSavingTrip(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#0A0A0A] text-[#F5E6D3]">
@@ -212,36 +263,26 @@ function CompareContent() {
             <label className="text-xs font-medium text-[#A89070] block mb-1.5">
               Origin City
             </label>
-            <input
+            <LocationAutocomplete
               value={origin}
-              onChange={(e) => setOrigin(e.target.value)}
-              list="origin-suggestions"
-              placeholder="Type your departure city"
+              onChange={setOrigin}
+              type="ORIGIN"
+              placeholder="Type any departure place worldwide"
               className="w-full bg-[#1A1A1A] border border-[#F5E6D3]/[0.1] rounded-xl px-3 py-2 text-xs text-[#F5E6D3] font-semibold focus:outline-none focus:border-red-500"
             />
-            <datalist id="origin-suggestions">
-              {ORIGIN_SUGGESTIONS.map((city) => <option key={city} value={city} />)}
-            </datalist>
           </div>
 
           <div>
             <label className="text-xs font-medium text-[#A89070] block mb-1.5">
               Destination
             </label>
-            <input
+            <LocationAutocomplete
               value={destinationInput}
-              onChange={(e) => selectDestination(e.target.value)}
-              list="destination-suggestions"
-              placeholder="Type a city or country"
+              onChange={setDestinationInput}
+              type="DESTINATION"
+              placeholder="Type any city, village, island or hidden place"
               className="w-full bg-[#1A1A1A] border border-[#F5E6D3]/[0.1] rounded-xl px-3 py-2 text-xs text-[#F5E6D3] font-semibold focus:outline-none focus:border-red-500"
             />
-            <datalist id="destination-suggestions">
-              {DESTINATIONS.map((d) => (
-                <option key={d.id} value={`${d.city}, ${d.country}`}>
-                  {d.city}, {d.country} {d.countryCode !== 'IN' ? '✈️ (Intl)' : ''}
-                </option>
-              ))}
-            </datalist>
           </div>
 
           <div>
@@ -264,24 +305,63 @@ function CompareContent() {
               ))}
             </div>
           </div>
+          <div>
+            <label className="text-xs font-medium text-[#A89070] block mb-1.5">Departure date</label>
+            <input type="date" value={departureDate} onChange={(e) => setDepartureDate(e.target.value)} className="w-full bg-[#1A1A1A] border border-[#F5E6D3]/[0.1] rounded-xl px-3 py-2 text-xs text-[#F5E6D3]" />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-[#A89070] block mb-1.5">Your car mileage (km/L)</label>
+            <input type="number" min="1" step="0.1" value={carMileageKmPerLiter} onChange={(e) => setCarMileageKmPerLiter(Number(e.target.value))} className="w-full bg-[#1A1A1A] border border-[#F5E6D3]/[0.1] rounded-xl px-3 py-2 text-xs text-[#F5E6D3]" />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-[#A89070] block mb-1.5">Your bike mileage (km/L)</label>
+            <input type="number" min="1" step="0.1" value={bikeMileageKmPerLiter} onChange={(e) => setBikeMileageKmPerLiter(Number(e.target.value))} className="w-full bg-[#1A1A1A] border border-[#F5E6D3]/[0.1] rounded-xl px-3 py-2 text-xs text-[#F5E6D3]" />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-[#A89070] block mb-1.5">Current fuel price (₹/L)</label>
+            <input type="number" min="1" step="0.1" value={fuelPricePerLiter} onChange={(e) => setFuelPricePerLiter(Number(e.target.value))} className="w-full bg-[#1A1A1A] border border-[#F5E6D3]/[0.1] rounded-xl px-3 py-2 text-xs text-[#F5E6D3]" />
+          </div>
+          <div><label className="text-xs font-medium text-[#A89070] block mb-1.5">Trip days</label><input type="number" min="2" max="30" value={tripDays} onChange={(e) => setTripDays(Number(e.target.value))} className="w-full bg-[#1A1A1A] border border-[#F5E6D3]/[0.1] rounded-xl px-3 py-2 text-xs text-[#F5E6D3]" /></div>
+          <div><label className="text-xs font-medium text-[#A89070] block mb-1.5">Stay quote (₹ / room / night)</label><input type="number" min="0" value={hotelNightPerRoom} onChange={(e) => setHotelNightPerRoom(Number(e.target.value))} className="w-full bg-[#1A1A1A] border border-[#F5E6D3]/[0.1] rounded-xl px-3 py-2 text-xs text-[#F5E6D3]" /></div>
+          <div><label className="text-xs font-medium text-[#A89070] block mb-1.5">Food (₹ / person / day)</label><input type="number" min="0" value={foodPerPersonPerDay} onChange={(e) => setFoodPerPersonPerDay(Number(e.target.value))} className="w-full bg-[#1A1A1A] border border-[#F5E6D3]/[0.1] rounded-xl px-3 py-2 text-xs text-[#F5E6D3]" /></div>
+          <div><label className="text-xs font-medium text-[#A89070] block mb-1.5">Activities (₹ / person / day)</label><input type="number" min="0" value={activitiesPerPersonPerDay} onChange={(e) => setActivitiesPerPersonPerDay(Number(e.target.value))} className="w-full bg-[#1A1A1A] border border-[#F5E6D3]/[0.1] rounded-xl px-3 py-2 text-xs text-[#F5E6D3]" /></div>
+          <div><label className="text-xs font-medium text-[#A89070] block mb-1.5">Local travel (₹ / day / group)</label><input type="number" min="0" value={localTravelPerDay} onChange={(e) => setLocalTravelPerDay(Number(e.target.value))} className="w-full bg-[#1A1A1A] border border-[#F5E6D3]/[0.1] rounded-xl px-3 py-2 text-xs text-[#F5E6D3]" /></div>
+          <div><label className="text-xs font-medium text-[#A89070] block mb-1.5">Verified train return fare (₹ / person)</label><input type="number" min="0" value={trainFarePerPerson || ''} onChange={(e) => setTrainFarePerPerson(Number(e.target.value))} placeholder="From IRCTC" className="w-full bg-[#1A1A1A] border border-[#F5E6D3]/[0.1] rounded-xl px-3 py-2 text-xs text-[#F5E6D3]" /></div>
+          <div><label className="text-xs font-medium text-[#A89070] block mb-1.5">Verified bus return fare (₹ / person)</label><input type="number" min="0" value={busFarePerPerson || ''} onChange={(e) => setBusFarePerPerson(Number(e.target.value))} placeholder="From redBus" className="w-full bg-[#1A1A1A] border border-[#F5E6D3]/[0.1] rounded-xl px-3 py-2 text-xs text-[#F5E6D3]" /></div>
+          <div><label className="text-xs font-medium text-[#A89070] block mb-1.5">Verified flight return fare (₹ / person)</label><input type="number" min="0" value={airFarePerPerson || ''} onChange={(e) => setAirFarePerPerson(Number(e.target.value))} placeholder="From Google Flights" className="w-full bg-[#1A1A1A] border border-[#F5E6D3]/[0.1] rounded-xl px-3 py-2 text-xs text-[#F5E6D3]" /></div>
         </div>
+
+        <section className="rounded-2xl border border-red-500/30 bg-[#141414] p-6 shadow-xl">
+          <div><p className="text-xs font-bold uppercase tracking-wider text-red-400">Complete trip breakdown</p><h2 className="mt-1 text-2xl font-black text-[#F5E6D3]">₹{tripTotal.total.toLocaleString('en-IN')} total · ₹{Math.round(tripTotal.total / travelers).toLocaleString('en-IN')} per person</h2><p className="mt-1 text-xs text-[#A89070]">{travelers} travelers · {tripDays} days · {tripTotal.nights} nights · {tripTotal.rooms} rooms</p></div>
+          <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-5">{transportChoices.map((choice) => <button key={choice.mode} onClick={() => setSelectedTransportMode(choice.mode)} className={`rounded-xl border p-3 text-left transition-colors ${selectedTransportMode === choice.mode ? 'border-red-500 bg-red-500/15' : 'border-white/[0.08] bg-black/20 hover:border-red-500/50'}`}><p className="text-sm font-black text-[#F5E6D3]">{choice.label}</p><p className="mt-1 font-mono text-xs font-bold text-teal-200">{choice.total === undefined ? 'Fare needed' : `₹${choice.total.toLocaleString('en-IN')} group`}</p><p className="mt-1 text-[10px] text-[#A89070]">{choice.note}</p></button>)}</div>
+          <div className="mt-5 grid grid-cols-2 gap-3 text-xs sm:grid-cols-5">{[[selectedTransportMode === 'CAR' || selectedTransportMode === 'BIKE' ? 'Travel fuel' : `${selectedTransportMode} return fare`, tripTotal.transport], ['Stay', tripTotal.stay], ['Food', tripTotal.food], ['Activities', tripTotal.activities], ['Local travel', tripTotal.localTravel]].map(([label, value]) => <div key={String(label)} className="rounded-xl border border-white/[0.06] bg-black/20 p-3"><p className="text-[#A89070]">{label}</p><p className="mt-1 font-mono text-sm font-bold text-[#F5E6D3]">₹{Number(value).toLocaleString('en-IN')}</p></div>)}</div>
+          <p className="mt-5 rounded-xl border border-teal-500/20 bg-teal-500/10 p-3 text-xs leading-relaxed text-teal-200">{convenience}</p>
+          <p className="mt-3 text-[11px] text-[#A89070]">Fuel is calculated from the route and your entered mileage/fuel rate. Stay, food, activities, and local travel use the amounts you enter from real quotes.</p>
+          <div className="mt-5 flex flex-wrap items-center gap-3">
+            <button onClick={saveTrip} disabled={savingTrip || !selectedTransportReady} className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-black text-white transition-colors hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-50"><Bookmark className="h-4 w-4" />{savingTrip ? 'Saving trip...' : 'Save this trip'}</button>
+            {saveMessage && <p role="status" className="text-xs font-semibold text-teal-200">{saveMessage}</p>}
+          </div>
+        </section>
 
         {/* Multi-modal Grid */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-bold font-['Outfit'] text-[#F5E6D3] flex items-center gap-2">
-              Transit Options for {destination.city}
-              <span className="text-xs font-normal text-[#A89070]">
-                (~{distanceKm} km one-way)
-              </span>
+              Transit Options for {destinationInput}
+              {carRoad?.distanceKm !== undefined && (
+                <span className="text-xs font-normal text-[#A89070]">
+                  (~{carRoad.distanceKm.toLocaleString('en-IN')} km one-way)
+                </span>
+              )}
             </h2>
-            <Link
-              href={`/destination/${destination.slug}`}
-              className="text-xs font-semibold text-red-400 hover:text-red-300 flex items-center gap-1"
-            >
-              View Full {destination.city} Budget
-              <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
+            {catalogDestination && (
+              <Link
+                href={`/destination/${catalogDestination.slug}`}
+                className="text-xs font-semibold text-red-400 hover:text-red-300"
+              >
+                View Full {catalogDestination.city} Budget
+              </Link>
+            )}
           </div>
 
           {loading && (
@@ -346,10 +426,47 @@ function CompareContent() {
               );
             })}
           </div>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <a
+              href="https://www.google.com/travel/flights"
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center justify-between gap-4 rounded-2xl border border-[#F5E6D3]/[0.08] bg-[#141414] p-5 transition-colors hover:border-red-500/40"
+            >
+              <span><span className="flex items-center gap-2 text-sm font-bold text-[#F5E6D3]"><Plane className="h-5 w-5 text-red-400" /> Check live flight fares</span><span className="mt-1 block text-xs text-[#A89070]">Search {origin} to {destinationInput} with your date on Google Flights for current airline prices.</span></span>
+              <ArrowRight className="h-5 w-5 shrink-0 text-red-400" />
+            </a>
+            <a
+              href="https://www.irctc.co.in/nget/train-search"
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center justify-between gap-4 rounded-2xl border border-[#F5E6D3]/[0.08] bg-[#141414] p-5 transition-colors hover:border-red-500/40"
+            >
+              <span><span className="flex items-center gap-2 text-sm font-bold text-[#F5E6D3]"><Train className="h-5 w-5 text-red-400" /> Check live train fares</span><span className="mt-1 block text-xs text-[#A89070]">Search {origin} to {destinationInput} on IRCTC. Fares and seat availability are shown by the booking provider.</span></span>
+              <ArrowRight className="h-5 w-5 shrink-0 text-red-400" />
+            </a>
+            <a
+              href="https://www.redbus.in/"
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center justify-between gap-4 rounded-2xl border border-[#F5E6D3]/[0.08] bg-[#141414] p-5 transition-colors hover:border-red-500/40"
+            >
+              <span><span className="flex items-center gap-2 text-sm font-bold text-[#F5E6D3]"><Bus className="h-5 w-5 text-red-400" /> Check live bus fares</span><span className="mt-1 block text-xs text-[#A89070]">Search {origin} to {destinationInput} on redBus for current operators, schedules, and prices.</span></span>
+              <ArrowRight className="h-5 w-5 shrink-0 text-red-400" />
+            </a>
+          </div>
         </div>
 
         {/* Road Cost Formula Transparency Section */}
-        {!isInternational && carRoad && (
+        {carRoad
+          && fuelRate !== undefined
+          && carMileage !== undefined
+          && roundtripDist !== undefined
+          && estimatedFuel !== undefined
+          && estimatedTolls !== undefined
+          && totalRoadCost !== undefined
+          && roadPerPerson !== undefined && (
           <div className="p-6 rounded-2xl bg-[#141414] border border-[#F5E6D3]/[0.08] shadow-xl space-y-5">
             <div className="flex items-center justify-between pb-3 border-b border-[#F5E6D3]/[0.08]">
               <div>
@@ -358,7 +475,7 @@ function CompareContent() {
                   Road Trip Mathematical Proof Engine
                 </h3>
                 <p className="text-xs text-[#A89070]">
-                  Live OpenStreetMap route for {origin} → {destination.city}, with round-trip fuel calculation
+                  Live route for {origin} → {destinationInput}, with round-trip fuel calculation
                 </p>
               </div>
               <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-[#D4B896]/10 text-[#D4B896] border border-[#D4B896]/20">
@@ -378,7 +495,7 @@ function CompareContent() {
                   {
                     latitude: carRoad.routeCoordinates[carRoad.routeCoordinates.length - 1][0],
                     longitude: carRoad.routeCoordinates[carRoad.routeCoordinates.length - 1][1],
-                    label: destination.city,
+                    label: destinationInput,
                   },
                 ]}
                 className="h-80"
@@ -402,13 +519,13 @@ function CompareContent() {
               <div className="p-4 rounded-xl bg-[#F5E6D3]/[0.02] border border-[#F5E6D3]/[0.04] space-y-1.5">
                 <div className="text-xs text-[#A89070] flex items-center gap-1.5">
                   <Receipt className="w-3.5 h-3.5 text-red-400" />
-                  FASTag Toll Tariffs
+                  Toll data
                 </div>
                 <div className="text-xl font-bold font-mono text-[#F5E6D3]">
-                  ₹{estimatedTolls.toLocaleString('en-IN')}
+                  {tollsAvailable ? `₹${estimatedTolls.toLocaleString('en-IN')}` : 'Unavailable'}
                 </div>
                 <div className="text-[11px] text-[#A89070]">
-                  Toll pricing is not provided by OpenStreetMap/OSRM
+                  Tolls are excluded until a verified toll provider is connected.
                 </div>
               </div>
 
@@ -422,7 +539,7 @@ function CompareContent() {
                   <span className="text-xs font-normal text-[#A89070]">/ person</span>
                 </div>
                 <div className="text-[11px] text-[#A89070]">
-                  Total ₹{totalRoadCost.toLocaleString('en-IN')} split {travelers} ways
+                  Fuel-only ₹{totalRoadCost.toLocaleString('en-IN')} split {travelers} ways
                 </div>
               </div>
             </div>

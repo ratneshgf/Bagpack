@@ -29,10 +29,10 @@ export async function POST(req: Request) {
       resultsCount: results.length,
       recommendations: results,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Recommendations API error:', error);
     return NextResponse.json(
-      { error: error.message || 'Internal recommendation error' },
+      { error: error instanceof Error ? error.message : 'Internal recommendation error' },
       { status: 500 }
     );
   }

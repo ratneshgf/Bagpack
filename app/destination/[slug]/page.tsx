@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect, use } from 'react';
+import { useState, use } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { getDestinationBySlug } from '@/lib/destinations';
+import type { TravelStyle } from '@/lib/types';
 import { estimateExpenseBreakdown, generateTransportOptions } from '@/lib/cost-engine';
 import CostBreakdown from '@/components/CostBreakdown';
 import TransportOptions from '@/components/TransportOptions';
@@ -36,12 +37,11 @@ export default function DestinationDetailPage({ params }: Props) {
 
   const [travelers, setTravelers] = useState(4);
   const [durationDays, setDurationDays] = useState(4);
-  const [travelStyle, setTravelStyle] = useState<'BACKPACKER' | 'BUDGET' | 'COMFORT' | 'LUXURY'>(
-    'COMFORT'
-  );
+  const [travelStyle, setTravelStyle] = useState<TravelStyle>('COMFORT');
   const [selectedMonth, setSelectedMonth] = useState('11');
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const destination = getDestinationBySlug(slug);
 
@@ -91,9 +91,10 @@ export default function DestinationDetailPage({ params }: Props) {
   );
 
   const handleSaveTrip = async () => {
+    setSaveError(null);
     setSaving(true);
     try {
-      await fetch('/api/trips', {
+      const response = await fetch('/api/trips', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -109,9 +110,15 @@ export default function DestinationDetailPage({ params }: Props) {
           selectedTransportMode: transportOptions[0]?.mode || 'AIR',
         }),
       });
+
+      if (!response.ok) {
+        const result = (await response.json()) as { error?: string };
+        throw new Error(result.error || 'Unable to save this trip.');
+      }
+
       setSaved(true);
-    } catch (err) {
-      console.error('Failed to save trip:', err);
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'Unable to save this trip.');
     } finally {
       setSaving(false);
     }
@@ -276,7 +283,7 @@ export default function DestinationDetailPage({ params }: Props) {
               <span className="text-slate-400">Style:</span>
               <select
                 value={travelStyle}
-                onChange={(e) => setTravelStyle(e.target.value as any)}
+                onChange={(e) => setTravelStyle(e.target.value as TravelStyle)}
                 className="bg-[#18182C] border border-white/[0.1] rounded-lg px-2.5 py-1 text-xs text-white font-bold"
               >
                 <option value="BACKPACKER">Backpacker</option>
@@ -387,6 +394,7 @@ export default function DestinationDetailPage({ params }: Props) {
                   <Bookmark className="w-4 h-4" />
                   {saved ? 'Saved to Your Trips' : 'Save Trip to My Plan'}
                 </button>
+                {saveError && <p role="alert" className="text-center text-xs font-medium text-rose-300">{saveError}</p>}
                 <Link
                   href={`/compare?dest=${destination.slug}&travelers=${travelers}`}
                   className="w-full py-2.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 hover:text-white text-xs font-semibold border border-white/[0.08] transition-colors text-center"

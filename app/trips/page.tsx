@@ -51,15 +51,18 @@ export default function TripsPage() {
   };
 
   useEffect(() => {
+    // This effect intentionally loads server data after the page mounts.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchTrips();
   }, []);
 
   const handleDelete = async (id: string) => {
     try {
-      await fetch(`/api/trips?id=${id}`, { method: 'DELETE' });
-      setTrips(trips.filter((t) => t.id !== id));
-    } catch (err) {
-      console.error(err);
+      const response = await fetch(`/api/trips?id=${id}`, { method: 'DELETE' });
+      if (!response.ok) throw new Error('Unable to delete saved trip.');
+      setTrips((currentTrips) => currentTrips.filter((trip) => trip.id !== id));
+    } catch (error) {
+      console.error('Failed to delete saved trip:', error);
     }
   };
 
@@ -195,7 +198,7 @@ export default function TripsPage() {
                     Saved {new Date(trip.createdAt).toLocaleDateString()}
                   </span>
                   <Link
-                    href={`/destination/${trip.destinationSlug}`}
+                    href={`/trips/${trip.id}`}
                     className="text-xs font-bold text-violet-400 hover:text-violet-300 flex items-center gap-1"
                   >
                     View Plan

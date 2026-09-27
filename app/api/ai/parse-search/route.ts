@@ -150,8 +150,11 @@ export async function POST(req: Request) {
       success: true,
       parsed,
     });
-  } catch (err: any) {
-    console.error('Parse search error:', err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+  } catch (error: unknown) {
+    console.error('Parse search error:', error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Unable to parse search.' },
+      { status: 500 },
+    );
   }
 }

@@ -238,8 +238,8 @@ export interface TransportOption {
     vehicleType: string;
     fuelPricePerLiter?: number;
     mileageKmPerLiter?: number;
-    tollSource?: 'UNAVAILABLE' | 'MODELED';
-    dataSource?: 'OPENSTREETMAP' | 'MODELED';
+    tollSource?: 'UNAVAILABLE' | 'MODELED' | 'GOOGLE_ROUTES';
+    dataSource?: 'OPENSTREETMAP' | 'MODELED' | 'GOOGLE_ROUTES';
     routeCoordinates?: Array<[number, number]>;
   };
 }

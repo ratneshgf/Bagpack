@@ -460,3 +460,35 @@ input[type='range']::-webkit-slider-thumb:hover {
     font-size: 12px;
   }
 }
+
+/* Neo-brutalist landing system */
+:root {
+  --neo-ink: #161616;
+  --neo-paper: #f7f1e8;
+  --neo-red: #f04b3e;
+  --neo-yellow: #f7c948;
+  --neo-blue: #91b7ff;
+  --neo-mint: #8fe3c2;
+}
+
+.neo-page { font-family: 'Inter', system-ui, sans-serif; }
+.neo-title, .neo-heading { font-family: 'Outfit', system-ui, sans-serif; font-weight: 900; }
+.neo-title { text-shadow: 6px 6px 0 rgba(22, 22, 22, .85); }
+.neo-heading { letter-spacing: -.06em; line-height: .95; }
+.neo-card { border: 3px solid var(--neo-ink); box-shadow: 7px 7px 0 var(--neo-ink); }
+.neo-card:hover { transform: translate(-2px, -2px); box-shadow: 9px 9px 0 var(--neo-ink); transition: transform .18s ease, box-shadow .18s ease; }
+.neo-chip, .neo-tag, .neo-pill, .neo-field { border: 2px solid var(--neo-ink); }
+.neo-chip { padding: 8px 12px; box-shadow: 4px 4px 0 var(--neo-ink); font-size: 11px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+.neo-field { padding: 12px 14px; background: #fff; box-shadow: 3px 3px 0 var(--neo-ink); }
+.neo-label, .neo-kicker { display: flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 900; letter-spacing: .14em; text-transform: uppercase; }
+.neo-label { margin-bottom: 6px; color: #f04b3e; }
+.neo-kicker { color: #f04b3e; }
+.neo-button { display: inline-flex; align-items: center; justify-content: center; gap: 9px; border: 3px solid var(--neo-ink); padding: 12px 18px; font-weight: 900; box-shadow: 5px 5px 0 var(--neo-ink); transition: transform .15s ease, box-shadow .15s ease; }
+.neo-button:hover { transform: translate(2px, 2px); box-shadow: 3px 3px 0 var(--neo-ink); }
+.neo-button-red { background: var(--neo-red); color: white; }
+.neo-pill { padding: 5px 9px; background: #fff; font-size: 10px; font-weight: 900; transition: background .15s ease; }
+.neo-sticker { display: flex; min-width: 48px; min-height: 48px; align-items: center; justify-content: center; border: 3px solid var(--neo-ink); font-size: 17px; font-weight: 900; box-shadow: 4px 4px 0 var(--neo-ink); }
+.neo-sticker-lg { display: inline-block; padding: 18px 22px; border: 3px solid var(--neo-ink); font-size: 25px; font-weight: 900; line-height: .9; box-shadow: 6px 6px 0 var(--neo-ink); }
+.neo-number { display: inline-flex; height: 42px; width: 42px; align-items: center; justify-content: center; border: 3px solid var(--neo-ink); font-size: 13px; font-weight: 900; box-shadow: 3px 3px 0 var(--neo-ink); }
+.neo-tag { padding: 5px 8px; font-size: 10px; font-weight: 900; text-transform: uppercase; box-shadow: 3px 3px 0 var(--neo-ink); }
+.neo-link { display: inline-flex; align-items: center; gap: 7px; font-weight: 900; text-decoration: underline; text-decoration-thickness: 3px; text-underline-offset: 4px; }

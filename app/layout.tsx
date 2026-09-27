@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import Navbar from '@/components/Navbar';
+import AuthGate from '@/components/AuthGate';
 
 export const metadata: Metadata = {
   title: 'BagPack — Budget-First Group Trip Planning',
@@ -31,9 +32,11 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className="bg-[#0A0A0A] text-[#F5E6D3] antialiased flex flex-col min-h-screen overflow-x-hidden w-full items-center">
-        <Navbar />
-        <div className="flex-1 w-full flex flex-col items-center">{children}</div>
+      <body className="bg-[#f7f1e8] text-[#161616] antialiased flex flex-col min-h-screen overflow-x-hidden w-full items-center">
+        <AuthGate>
+          <Navbar />
+          <div className="flex-1 w-full flex flex-col items-center">{children}</div>
+        </AuthGate>
       </body>
     </html>
   );

@@ -15,6 +15,13 @@ import {
   CheckCircle2,
   AlertCircle,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+
+const transportIcons: Partial<Record<RecommendationResult['bestTransportMode'], LucideIcon>> = {
+  AIR: Plane,
+  RAIL: Train,
+  CAR: Car,
+};
 
 interface Props {
   result: RecommendationResult;
@@ -48,20 +55,7 @@ export default function RecommendationCard({
     ? userBudgetPerPerson - costPerPerson
     : null;
 
-  const getTransportIcon = (mode: string) => {
-    switch (mode) {
-      case 'AIR':
-        return Plane;
-      case 'RAIL':
-        return Train;
-      case 'CAR':
-        return Car;
-      default:
-        return Plane;
-    }
-  };
-
-  const TransportIcon = getTransportIcon(bestTransportMode);
+  const TransportIcon = transportIcons[bestTransportMode] ?? Plane;
 
   return (
     <div className="group bg-[#11111E] border border-white/[0.08] hover:border-violet-500/40 rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl hover:shadow-violet-600/10 transition-all duration-300 flex flex-col h-full">

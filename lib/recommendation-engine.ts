@@ -68,11 +68,13 @@ function getVisaEaseScore(countryCode: string): number {
 // ── Candidate Generation ──────────────────────────────────────
 
 function getCandidateDestinations(request: SearchRequest): Destination[] {
-  const { tripScope } = request;
+  const { tripScope, interests } = request;
   return DESTINATIONS.filter(d => {
-    if (tripScope === 'DOMESTIC') return d.countryCode === 'IN';
-    if (tripScope === 'INTERNATIONAL') return d.countryCode !== 'IN';
-    return true; // BOTH
+    const matchesScope =
+      tripScope === 'DOMESTIC' ? d.countryCode === 'IN' :
+      tripScope === 'INTERNATIONAL' ? d.countryCode !== 'IN' : true;
+    const matchesInterest = interests.length === 0 || interests.some((interest) => d.tags.includes(interest));
+    return matchesScope && matchesInterest;
   });
 }
 

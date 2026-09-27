@@ -39,6 +39,8 @@ export default function LiveIndiaResearch({ initialQuery }: { initialQuery: stri
   };
 
   useEffect(() => {
+    // This effect intentionally synchronizes the editable query with its prop.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setQuery(initialQuery);
     const timer = window.setTimeout(() => research(initialQuery), 500);
     return () => window.clearTimeout(timer);
